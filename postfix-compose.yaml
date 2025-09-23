@@ -7,7 +7,7 @@ services:
   postfix:
     image: private/postfix:latest
     build:
-      context: ./postfix/Dockerfiles/
+      context: ./postfix/
       dockerfile: Dockerfile
     container_name: postfix
     env_file: .env
@@ -17,7 +17,6 @@ services:
       - '25:25'
       - '587:587'
     volumes:
-      - ./postfix/conf.d/:/etc/postfix/conf.d:rw
       - certs:/certs:ro
     restart: unless-stopped
     depends_on:
@@ -40,6 +39,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-acme:/data:ro         # Location of traefik acme files
       - certs:/certs:rw               # Location to export certificates to
+    depends_on:
+      - app
+      - reverse-proxy
 
 volumes:
   certs:

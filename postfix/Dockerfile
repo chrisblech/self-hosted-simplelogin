@@ -9,15 +9,18 @@ RUN apk --no-cache upgrade --purge
 # ================================
 FROM scratch AS alpine
 COPY --from=base / /
-CMD ["/bin/sh"]
 
 # STAGE 2: postfix
 # ================================
 FROM alpine AS postfix
 
 # install dependencies
-RUN apk --no-cache add postfix postfix-pgsql
+RUN apk --no-cache add postfix postfix-pgsql \
+  && mkdir -p /templates /etc/postfix/conf.d
 
-COPY ./docker-entrypoint.sh /docker-entrypoint.sh
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY templates /templates/
+COPY conf.d /etc/postfix/conf.d/
+
 ENTRYPOINT ["/docker-entrypoint.sh"]
-
+CMD ["/usr/sbin/postfix", "start-fg"]
