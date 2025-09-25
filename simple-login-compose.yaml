@@ -9,10 +9,11 @@ services:
     container_name: sl-db
     env_file: .env
     healthcheck:
-      test: [ "CMD", "pg_isready" ]
-      interval: 10s
-      retries: 3
-      start_period: 1s
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 30s
+      timeout: 5s
+      retries: 5
     volumes:
       - ./db:/var/lib/postgresql/data
     restart: unless-stopped
@@ -55,6 +56,9 @@ services:
       - ./dkim.key:/dkim.key
       - ./dkim.pub.key:/dkim.pub.key
     restart: unless-stopped
+    networks:
+      - default
+      - traefik
     depends_on:
       init:
         condition: service_completed_successfully
