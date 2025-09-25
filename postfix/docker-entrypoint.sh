@@ -19,7 +19,7 @@ ere_quote() {
 
 # main.cf aus Template ableiten
 sed \
-  -e "s/app.domain.tld/${SUBDOMAIN}.${DOMAIN}/g" \
+  -e "s/app.domain.tld/${SUBDOMAIN:-app}.${DOMAIN}/g" \
   -e "s/domain.tld/${DOMAIN}/g" \
   "$TEMPLATE_DIR/main.cf.tpl" > "$MAIL_CONFIG/main.cf"
 
