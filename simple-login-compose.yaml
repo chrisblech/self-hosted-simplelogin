@@ -1,6 +1,13 @@
+x-sl-defaults: &sl-defaults
+  image: simplelogin/$SL_IMAGE:$SL_VERSION
+  env_file: .env
+  volumes:
+    - sldata:/sl
+    - upload:/code/static/upload
+    ## Uncomment this to use a specific `dkim.key` from the host machine
+    #- ./dkim.key:/sl/dkim/dkim.key
 
 services:
-
   ## SIMPLE LOGIN
   ## ============
   
@@ -15,46 +22,51 @@ services:
       timeout: 5s
       retries: 5
     volumes:
-      - ./db:/var/lib/postgresql/data
+      - pqdata:/var/lib/postgresql/data
     restart: unless-stopped
 
   migration:
-    image: simplelogin/$SL_IMAGE:$SL_VERSION
+    <<: *sl-defaults
     command: [ "alembic", "upgrade", "head" ]
-    container_name: sl-migration
-    env_file: .env
-    volumes:
-      - ./pgp:/sl/pgp
-      - ./upload:/code/static/upload
-      - ./dkim.key:/dkim.key
-      - ./dkim.pub.key:/dkim.pub.key
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        KEY="${DKIM_PRIVATE_KEY_PATH:-/sl/dkim/dkim.key}"
+        DIR="$(dirname "$KEY")"
+        umask 077
+        mkdir -p "$DIR" "${GNUPGHOME:-/sl/pgp}"
+        if [ ! -s "$KEY" ]; then
+          echo "[dkim-init] No key at $KEY — generating 1024-bit RSA key..."
+          openssl genrsa -out "$KEY" 1024
+        fi
+        chmod 600 "$KEY" 2>/dev/null || true
+        exec "$@"
     depends_on:
       postgres:
         condition: service_healthy
 
   init:
-    image: simplelogin/$SL_IMAGE:$SL_VERSION
+    <<: *sl-defaults
     command: [ "python", "init_app.py" ]
-    container_name: sl-init
-    env_file: .env
-    volumes:
-      - ./pgp:/sl/pgp
-      - ./upload:/code/static/upload
-      - ./dkim.key:/dkim.key
-      - ./dkim.pub.key:/dkim.pub.key
     depends_on:
       migration:
         condition: service_completed_successfully
 
   app:
-    image: simplelogin/$SL_IMAGE:$SL_VERSION
+    <<: *sl-defaults
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        KEY="${DKIM_PRIVATE_KEY_PATH:-/sl/dkim/dkim.key}"
+        PUB="$(openssl rsa -in "$KEY" -pubout -outform DER 2>/dev/null | openssl base64 -A)"
+        echo "[dkim-init] DKIM public key (p=) — add this to your DNS TXT record:"
+        echo "v=DKIM1; k=rsa; p=$PUB"
+        exec "$@"
     container_name: sl-app
-    env_file: .env
-    volumes:
-      - ./pgp:/sl/pgp
-      - ./upload:/code/static/upload
-      - ./dkim.key:/dkim.key
-      - ./dkim.pub.key:/dkim.pub.key
     restart: unless-stopped
     networks:
       - default
@@ -84,31 +96,24 @@ services:
       - "traefik.http.middlewares.mta-sts.plugin.staticresponse.Body=version: STSv1\nmode: testing\nmx: ${SUBDOMAIN:-app}.${DOMAIN}\nmax_age: 86400"
 
   email:
-    image: simplelogin/$SL_IMAGE:$SL_VERSION
+    <<: *sl-defaults
     command: ["python", "email_handler.py"]
     container_name: sl-email
-    env_file: .env
-    volumes:
-      - ./pgp:/sl/pgp
-      - ./upload:/code/static/upload
-      - ./dkim.key:/dkim.key
-      - ./dkim.pub.key:/dkim.pub.key
     restart: unless-stopped
     depends_on:
       init:
         condition: service_completed_successfully
 
   job-runner:
-    image: simplelogin/$SL_IMAGE:$SL_VERSION
+    <<: *sl-defaults
     command: ["python", "job_runner.py"]
     container_name: sl-job-runner
-    env_file: .env
-    volumes:
-      - ./pgp:/sl/pgp
-      - ./upload:/code/static/upload
-      - ./dkim.key:/dkim.key
-      - ./dkim.pub.key:/dkim.pub.key
     restart: unless-stopped
     depends_on:
       init:
         condition: service_completed_successfully
+
+volumes:
+  pqdata:
+  sldata:
+  upload:

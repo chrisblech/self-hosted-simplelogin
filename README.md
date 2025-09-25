@@ -73,14 +73,7 @@ From Wikipedia <https://en.wikipedia.org/wiki/DomainKeys_Identified_Mail>
 
 Setting up DKIM is highly recommended to reduce the chance for your emails ending up in the recipient's Spam folder.
 
-First you need to generate a private and public key for DKIM:
-
-```bash
-openssl genrsa -traditional -out dkim.key 1024
-openssl rsa -in dkim.key -pubout -out dkim.pub.key
-```
-
-You will need the files `dkim.key` and `dkim.pub.key` for the next steps.
+If there is no keyfile in DKIM_PRIVATE_KEY_PATH, the migration container will create it, and write the public key in its logs.
 
 For email gurus, we have chosen 1024 key length instead of 2048 for DNS simplicity as some registrars don't play well with long TXT record.
 
@@ -88,32 +81,6 @@ Set up DKIM by adding a **TXT record** for `dkim._domainkey.mydomain.com.` with 
 
 ```plaintext
 v=DKIM1; k=rsa; p=PUBLIC_KEY
-```
-
-with `PUBLIC_KEY` being your `dkim.pub.key` but
-
-- remove the `-----BEGIN PUBLIC KEY-----` and `-----END PUBLIC KEY-----`
-- join all the lines on a single line.
-
-For example, if your `dkim.pub.key` is
-
-```plaintext
------BEGIN PUBLIC KEY-----
-ab
-cd
-ef
-gh
------END PUBLIC KEY-----
-```
-
-then the `PUBLIC_KEY` would be `abcdefgh`.
-
-You can get the `PUBLIC_KEY` by running this command:
-
-```bash
-sed "s/-----BEGIN PUBLIC KEY-----/v=DKIM1; k=rsa; p=/g" $(pwd)/dkim.pub.key | \
-  sed 's/-----END PUBLIC KEY-----//g' | \
-  tr -d '\n' | awk 1
 ```
 
 To verify, the following command:
