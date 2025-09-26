@@ -27,22 +27,21 @@ services:
 
   migration:
     <<: *sl-defaults
-    command: [ "alembic", "upgrade", "head" ]
     entrypoint:
       - /bin/sh
       - -c
       - |
         set -eu
-        KEY="${DKIM_PRIVATE_KEY_PATH:-/sl/dkim/dkim.key}"
-        DIR="$(dirname "$KEY")"
+        KEY="$${DKIM_PRIVATE_KEY_PATH:-/sl/dkim/dkim.key}"
+        DIR="$$(dirname $$KEY)"
         umask 077
-        mkdir -p "$DIR" "${GNUPGHOME:-/sl/pgp}"
-        if [ ! -s "$KEY" ]; then
-          echo "[dkim-init] No key at $KEY — generating 1024-bit RSA key..."
-          openssl genrsa -out "$KEY" 1024
+        mkdir -p "$$DIR" "$${GNUPGHOME:-/sl/pgp}"
+        if [ ! -s "$$KEY" ]; then
+          echo "[dkim-init] No key at $$KEY — generating 1024-bit RSA key..."
+          openssl genrsa -out "$$KEY" 1024
         fi
-        chmod 600 "$KEY" 2>/dev/null || true
-        exec "$@"
+        chmod 600 "$$KEY" 2>/dev/null || true
+        exec alembic upgrade head
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,11 +60,11 @@ services:
       - -c
       - |
         set -eu
-        KEY="${DKIM_PRIVATE_KEY_PATH:-/sl/dkim/dkim.key}"
-        PUB="$(openssl rsa -in "$KEY" -pubout -outform DER 2>/dev/null | openssl base64 -A)"
-        echo "[dkim-init] DKIM public key (p=) — add this to your DNS TXT record:"
-        echo "v=DKIM1; k=rsa; p=$PUB"
-        exec "$@"
+        KEY="$${DKIM_PRIVATE_KEY_PATH:-/sl/dkim/dkim.key}"
+        PUB="$$(openssl rsa -in $$KEY -pubout -outform DER 2>/dev/null | openssl base64 -A)"
+        echo "[dkim-init] DKIM public key — add this to your DNS TXT record:"
+        echo "v=DKIM1; k=rsa; p=$$PUB"
+        exec gunicorn wsgi:app -b 0.0.0.0:7777 -w 2 --timeout 45
     container_name: sl-app
     restart: unless-stopped
     networks:
