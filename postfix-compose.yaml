@@ -52,6 +52,8 @@ services:
         condition: service_healthy
       traefik-certificate-exporter:
         condition: service_healthy
+      opendkim:
+        condition: service_healthy
     labels:
       - com.github.ravensorb.traefik-certificate-exporter.domain-restart=${SUBDOMAIN:-app}.${DOMAIN},${DOMAIN}
 
@@ -77,6 +79,86 @@ services:
       start_period: 5m
     depends_on:
       - app
+
+  ## DKIM signing for postfix-internal/outgoing mail (e.g. MAILER-DAEMON bounces)
+  ## =======================================================================
+  ## This is a standalone OpenDKIM milter. Postfix is configured (see postfix/templates)
+  ## to use it for both SMTP and non-SMTP originated messages.
+  opendkim:
+    image: instrumentisto/opendkim:2.11-alpine
+    container_name: opendkim
+    networks:
+      - internal
+    expose:
+      - "8891"
+    environment:
+      - DOMAIN=${DOMAIN}
+      - DKIM_SELECTOR=${DKIM_SELECTOR:-default}
+    volumes:
+      # Reuse the same private key you already mount into SimpleLogin.
+      # (Long-term, this could also be replaced by Docker secrets.)
+      - ./dkim.key:/dkim.key:ro
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        : "${DOMAIN:?Need DOMAIN}"
+        SELECTOR="${DKIM_SELECTOR:-default}"
+
+        cat > /etc/opendkim/opendkim.conf <<'EOF'
+        Syslog                  yes
+        SyslogSuccess           yes
+        LogWhy                  yes
+
+        UMask                   002
+
+        # Listen as a TCP milter inside the docker network
+        Socket                  inet:8891@0.0.0.0
+
+        # Sign outgoing mail
+        Mode                    sv
+
+        Canonicalization        relaxed/simple
+        OversignHeaders         From
+
+        AutoRestart             yes
+        AutoRestartRate         10/1h
+        Background              no
+
+        SubDomains              yes
+
+        # Only Postfix inside this compose network should be trusted to ask for signing
+        InternalHosts           /etc/opendkim/TrustedHosts
+
+        KeyTable                /etc/opendkim/KeyTable
+        SigningTable            refile:/etc/opendkim/SigningTable
+
+        # Recommended in container setups where keys are mounted as volumes
+        RequireSafeKeys         false
+        EOF
+
+        cat > /etc/opendkim/TrustedHosts <<'EOF'
+        postfix
+        EOF
+
+        # KeyTable: <key-name> <domain>:<selector>:<private-key-path>
+        cat > /etc/opendkim/KeyTable <<EOF
+        ${SELECTOR}._domainkey.${DOMAIN} ${DOMAIN}:${SELECTOR}:/dkim.key
+        EOF
+
+        # SigningTable: <pattern> <key-name>
+        cat > /etc/opendkim/SigningTable <<EOF
+        *@${DOMAIN} ${SELECTOR}._domainkey.${DOMAIN}
+        EOF
+
+        exec /init
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8891"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
 
 volumes:
   certs:
