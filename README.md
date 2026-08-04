@@ -1,6 +1,9 @@
+
 # SimpleLogin
 
 This is a self-hosted docker-compose configuration for [SimpleLogin](https://simplelogin.io).
+
+![](https://img.shields.io/badge/latest%20supported%20upstream%20version-v4.81.6-blue)
 
 ## Prerequisites
 
