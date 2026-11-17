@@ -13,19 +13,19 @@ services:
       internal:
         ipv4_address: 10.0.0.53
     restart: unless-stopped
-    # Listener config is written at container start, so this has no host-
-    # file dependency at all.
-    # Picked up via the image's own `include: /config/*.conf`, additively
-    # alongside its default listener on 5053 - so the image's built-in
-    # healthcheck (which probes 5053) is unaffected.
-    #
-    # the upstream maintainer deliberately configured:
-    # - module-config trims the cachedb module the image loads by default
-    #   (unused without a configured cache backend)
-    # - root-hints pins the image's own dns-root-hints package file, which
-    #   the image refreshes monthly via its own cron
-    #   (/etc/periodic/monthly/dns-root-hints) - the compiled-in fallback
-    #   Unbound would otherwise use only updates when the image itself does
+    ## Listener config is written at container start, so this has no host-
+    ## file dependency at all.
+    ## Picked up via the image's own `include: /config/*.conf`, additively
+    ## alongside its default listener on 5053 - so the image's built-in
+    ## healthcheck (which probes 5053) is unaffected.
+    ##
+    ## the upstream maintainer deliberately configured:
+    ## - module-config trims the cachedb module the image loads by default
+    ##   (unused without a configured cache backend)
+    ## - root-hints pins the image's own dns-root-hints package file, which
+    ##   the image refreshes monthly via its own cron
+    ##   (/etc/periodic/monthly/dns-root-hints) - the compiled-in fallback
+    ##   Unbound would otherwise use only updates when the image itself does
     entrypoint:
       - /bin/sh
       - -ec
@@ -57,7 +57,7 @@ services:
       - internal
     env_file: .env
     ports:
-      # IPv4 only: the internal network is IPv4-only (see mynetworks)
+      ## IPv4 only: the internal network is IPv4-only (see mynetworks)
       - '0.0.0.0:25:25'
     volumes:
       - certs:/certs:ro

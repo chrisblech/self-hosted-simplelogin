@@ -1,10 +1,10 @@
 x-sl-defaults: &sl-defaults
   image: simplelogin/$SL_IMAGE:$SL_VERSION
   env_file: .env
-  # Paths inside the container - not meant to be end-user configurable
-  # (we control the whole image/volume layout), so these are fixed here
-  # rather than left for .env to set. Overrides any stale value a .env
-  # might still carry from before this change.
+  ## Paths inside the container - not meant to be end-user configurable
+  ## (we control the whole image/volume layout), so these are fixed here
+  ## rather than left for .env to set. Overrides any stale value a .env
+  ## might still carry from before this change.
   environment:
     DKIM_PRIVATE_KEY_PATH: /sl/dkim/dkim.key
     GNUPGHOME: /sl/pgp
@@ -17,9 +17,6 @@ x-sl-defaults: &sl-defaults
     - internal
 
 services:
-  ## SIMPLE LOGIN
-  ## ============
-
   postgres:
     image: postgres:17.7
     container_name: sl-db
@@ -50,13 +47,13 @@ services:
   init:
     <<: *sl-defaults
     container_name: sl-init
-    # Ensures the sldata volume has the directory structure the app needs,
-    # and generates a DKIM key if none exists yet - runs on every start,
-    # but only ever acts once (mkdir -p and the missing-key check are both
-    # no-ops after the first successful run). This also covers the case
-    # where migrate-volumes-compose.yaml (which does the same mkdir -p, to
-    # have somewhere to copy pre-existing bind-mounted data into) has been
-    # commented out after migration, or was never used at all.
+    ## Ensures the sldata volume has the directory structure the app needs,
+    ## and generates a DKIM key if none exists yet - runs on every start,
+    ## but only ever acts once (mkdir -p and the missing-key check are both
+    ## no-ops after the first successful run). This also covers the case
+    ## where migrate-volumes-compose.yaml (which does the same mkdir -p, to
+    ## have somewhere to copy pre-existing bind-mounted data into) has been
+    ## commented out after migration, or was never used at all.
     entrypoint:
       - /bin/sh
       - -c
@@ -77,15 +74,15 @@ services:
   app:
     <<: *sl-defaults
     container_name: sl-app
-    # Prints the DKIM public key on every start, for convenience when
-    # setting up the DNS TXT record. No set -eu here: by the time this
-    # container starts, `init` above has already guaranteed a valid key
-    # exists, and the openssl pipe below wouldn't propagate a failure from
-    # its first stage anyway (no pipefail in /bin/sh), so -e would only
-    # look like protection without actually providing any.
-    #
-    # --timeout 45 (not the Dockerfile default of 15): a fix from an
-    # earlier deployment that never made it back into the app repo.
+    ## Prints the DKIM public key on every start, for convenience when
+    ## setting up the DNS TXT record. No set -eu here: by the time this
+    ## container starts, `init` above has already guaranteed a valid key
+    ## exists, and the openssl pipe below wouldn't propagate a failure from
+    ## its first stage anyway (no pipefail in /bin/sh), so -e would only
+    ## look like protection without actually providing any.
+    ##
+    ## --timeout 45 (not the Dockerfile default of 15): a fix from an
+    ## earlier deployment that never made it back into the app repo.
     entrypoint:
       - /bin/sh
       - -c

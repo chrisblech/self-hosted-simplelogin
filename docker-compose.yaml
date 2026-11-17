@@ -1,16 +1,22 @@
-# If there is already a traefik container running on your host, you can comment out the first include line.
-# But make sure that...
-# - container `sl-app` can join traefiks network, defined in traefic static config `providers.docker.network`
-# - container `traefik-certificate-exporter` can access traefiks acme-storage
+## If there is already a traefik container running on your host, you can comment out the first include line.
+## But make sure that...
+## - container `sl-app` can join traefiks network, defined in traefic static config `providers.docker.network`
+## - container `traefik-certificate-exporter` can access traefiks acme-storage
 
 include:
   - traefik-compose.yaml
   - simple-login-compose.yaml
   - postfix-compose.yaml
-  ## Migrates pre-existing ./db, ./pgp, ./upload, ./dkim.key content (if any)
-  ## into the named volumes above. Safe to leave in for a fresh install too.
-  ## Comment out once you've confirmed the migration succeeded.
-  - migrate-volumes-compose.yaml
+#  - migrate-volumes-compose.yaml    ## see comment below
+
+## === AUTO-UPGRADE from bind-mount based installations ===
+## Including "migrate-volumes-compose.yaml" migrates pre-existing 
+## ./db, ./pgp, ./upload, ./dkim.key content (if any)
+## into the named volumes. Safe to leave in for a fresh install too.
+## ==> But... CHECK your DOCKER VERSION:
+## Docker engines < 5.0 won't accept this file via `include` here, you need to pass it to the CLI like this:
+##   docker compose -f docker-compose.yaml -f migrate-volumes-compose.yaml run --rm volume-migrate
+## Docker engine >= 5.0 merge existing services, just uncomment include line above
 
 networks:
   internal:

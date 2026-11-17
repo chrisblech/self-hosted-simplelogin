@@ -1,18 +1,19 @@
-# One-time migration helper: copies pre-existing data from the old
-# bind-mount layout (./db, ./pgp, ./upload, ./dkim.key) into the named
-# volumes now used by simple-login-compose.yaml, if you're upgrading an
-# existing deployment.
-#
-# Safe to leave included even without any of the above present (e.g. a
-# fresh install) - it just creates the sldata directory structure and
-# does nothing else. Comment out the include line for this file in
-# docker-compose.yaml once you've confirmed the migration succeeded.
-#
-# The whole project directory is bind-mounted read-only (rather than each
-# legacy path individually) because the project directory always exists,
-# whereas e.g. ./dkim.key commonly does not on a fresh setup - bind
-# mounting a single nonexistent file path would make Docker silently
-# create an empty directory there instead of leaving it absent.
+## One-time migration helper: copies pre-existing data from the old
+## bind-mount layout (./db, ./pgp, ./upload, ./dkim.key) into the named
+## volumes now used by simple-login-compose.yaml, if you're upgrading an
+## existing deployment.
+##
+## Comment out the include line for this file in main `docker-compose.yaml`
+## once you've confirmed the migration succeeded. But, it is also
+## safe to leave included even without any of the above present (e.g. a
+## fresh install) - it just creates the sldata directory structure and
+## does nothing else. 
+##
+## The whole project directory is bind-mounted read-only (rather than each
+## legacy path individually) because the project directory always exists,
+## whereas e.g. ./dkim.key commonly does not on a fresh setup - bind
+## mounting a single nonexistent file path would make Docker silently
+## create an empty directory there instead of leaving it absent.
 services:
   volume-migrate:
     image: alpine:3.22
@@ -53,6 +54,12 @@ services:
           echo "[volume-migrate] no existing dkim.key"
         fi
 
+  ## Override/extend existing postgres service (see: simple-login-compose.yaml)
+  ## Postgres (and all services dependent on it) must wait until this migration is complete.
+  ## If you see errors like 
+  ## - "imported compose file […migrate-volumes-compose.yaml] defines conflicting service postgres"
+  ## - "services.postgres conflicts with imported resource"
+  ## upgrade your docker engine to 5.0 or higher, or read comment in "docker-compose.yaml"
   postgres:
     depends_on:
       volume-migrate:
