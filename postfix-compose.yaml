@@ -1,9 +1,6 @@
 
 services:
 
-  ## POSTFIX
-  ## =================
-
   dns:
     image: crazymax/unbound:latest
     container_name: dns
@@ -60,9 +57,11 @@ services:
       - internal
     env_file: .env
     ports:
-      - '25:25'
+      # IPv4 only: the internal network is IPv4-only (see mynetworks)
+      - '0.0.0.0:25:25'
     volumes:
       - certs:/certs:ro
+      - postfix-runtime:/postfix-runtime
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "nc -w 3 127.0.0.1 25 </dev/null | grep -q '^220'"]
@@ -81,16 +80,15 @@ services:
       - com.github.ravensorb.traefik-certificate-exporter.domain-restart=${SUBDOMAIN:-app}.${DOMAIN},${DOMAIN}
 
   traefik-certificate-exporter:
-    image: ravensorb/traefik-certificate-exporter:latest
+    image: ravensorb/traefik-certificate-exporter:0.3.1
     container_name: cert-exporter
     restart: unless-stopped
     environment:
       - TRAEFIK_CERTIFICATE_EXPORTER_SETTINGS_FLAT=true
-      - TRAEFIK_CERTIFICATE_EXPORTER_SETTINGS_RESTARTCONTAINER=true
+      - TRAEFIK_CERTIFICATE_EXPORTER_SETTINGS_RESTARTCONTAINERS=true
       - TRAEFIK_CERTIFICATE_EXPORTER_SETTINGS_RUNATSTART=true
       - TRAEFIK_CERTIFICATE_EXPORTER_SETTINGS_RESOLVERINPATHNAME=false
-      - TRAEFIK_CERTIFICATE_EXPORTER_SETTINGS_DOMAINS_INCLUDE=${DOMAIN},${SUBDOMAIN:-app}.${DOMAIN},*.${DOMAIN}
-      - TRAEFIK_CERTIFICATE_EXPORTER_SETTINGS_DOMAINS_EXCLUDE=exclude # see: https://github.com/ravensorb/traefik-certificate-exporter/issues/5
+      - TRAEFIK_CERTIFICATE_EXPORTER_SETTINGS_DOMAINS_INCLUDE=${DOMAIN},${SUBDOMAIN:-app}.${DOMAIN}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-acme:/data:ro
@@ -106,6 +104,7 @@ services:
 
 volumes:
   certs:
+  postfix-runtime:
   ## Uncomment the next lines, if traefik is running outside this project
   # traefik-acme:  # <-- do not change this identifier
   #   name: traefik-acme    # change (only) this to the name of traefik acme storage volume
