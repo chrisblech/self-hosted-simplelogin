@@ -7,20 +7,19 @@ services:
     user: "0:0"
     cap_add:
       - NET_BIND_SERVICE
+    tmpfs:
+      - /config
     networks:
       internal:
         ipv4_address: 10.0.0.53
     restart: unless-stopped
-    # Listener config is written at container start instead of bind-mounted
-    # from ./unbound/conf.d/, so this has no host-file dependency at all.
+    # Listener config is written at container start, so this has no host-
+    # file dependency at all.
     # Picked up via the image's own `include: /config/*.conf`, additively
     # alongside its default listener on 5053 - so the image's built-in
     # healthcheck (which probes 5053) is unaffected.
-    # Recipe: https://github.com/springcomp/self-hosted-simplelogin/pull/46#issuecomment-3707216659
     #
-    # module-config/identity/root-hints match what the previous
-    # bind-mounted unbound/conf.d/00-unbound.conf set, to not weaken
-    # anything the upstream maintainer deliberately configured:
+    # the upstream maintainer deliberately configured:
     # - module-config trims the cachedb module the image loads by default
     #   (unused without a configured cache backend)
     # - root-hints pins the image's own dns-root-hints package file, which
@@ -31,15 +30,16 @@ services:
       - /bin/sh
       - -ec
       - |
-        cat > /config/00-listen-port.conf <<'EOF'
+        cat > /config/unbound.conf <<'EOF'
         server:
+          identity: "DNS"
           interface: 0.0.0.0@53
-          # log-queries: yes
+          log-queries: ${LOG_DNS_QUERIES:-no}
           verbosity: 1
           infra-cache-max-rtt: 1000
+          tcp-auth-query-timeout: 1000
           discard-timeout: 0
           module-config: "validator iterator"
-          identity: "DNS"
           root-hints: "/usr/share/dns-root-hints/named.root"
         EOF
         unbound-anchor -a /var/run/unbound/root.key || true
@@ -89,6 +89,8 @@ services:
       - TRAEFIK_CERTIFICATE_EXPORTER_SETTINGS_RUNATSTART=true
       - TRAEFIK_CERTIFICATE_EXPORTER_SETTINGS_RESOLVERINPATHNAME=false
       - TRAEFIK_CERTIFICATE_EXPORTER_SETTINGS_DOMAINS_INCLUDE=${DOMAIN},${SUBDOMAIN:-app}.${DOMAIN}
+    tmpfs:
+      - /config
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-acme:/data:ro
